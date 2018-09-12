@@ -6,11 +6,56 @@
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netdb.h>
 
 void error(const char *msg)/*error message generated*/
 {
 	perror(msg);
 	exit(1);
+}
+
+char *proxy_request(char* host, int iport) {
+	int sockfd, portno, n, comp;
+        struct sockaddr_in serv_addr;
+        struct hostent *server;
+        char bufferread[256];
+        char bufferwrite[256];
+        portno = iport;/*change a string to an integer*/
+        sockfd = socket(AF_INET, SOCK_STREAM, 0);
+        if (sockfd < 0)
+                error("ERROR opening socket");
+        server = gethostbyname(host);
+        if (server == NULL) {
+                fprintf(stderr,"ERROR, no such host\n");
+                exit(0);
+        }
+        bzero((char *) &serv_addr, sizeof(serv_addr));
+        serv_addr.sin_family = AF_INET;
+        bcopy((char *)server->h_addr,
+                        (char *)&serv_addr.sin_addr.s_addr,
+                        server->h_length);
+        serv_addr.sin_port = htons(portno);
+        if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
+                error("ERROR connecting");
+        while(strcmp(bufferwrite, "EXIT\n") != 0)/*checks to see if the host wants to quit*/
+        {
+                printf("Please enter the message: ");/*message to be sent*/
+                bzero(bufferwrite,256);
+                fgets(bufferwrite,255,stdin);/*get from the console*/
+                n = write(sockfd,bufferwrite,strlen(bufferwrite));
+                if (n < 0)
+                {
+                        error("ERROR writing to socket");
+                }
+                bzero(bufferread,256);/*clears the bufferread array*/
+                n = read(sockfd,bufferread,255);/*read from the socket*/
+                if (n < 0)
+                        error("ERROR reading from socket");
+                printf("%s\n",bufferread);
+        }
+        close(sockfd);/*close socket*/
+        return 0;
+
 }
 
 void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
