@@ -87,14 +87,15 @@ void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
 			error("ERROR reading from socket");
 		}
 		printf("%s\n",buffer);/*message from client*/
+		int buffer_size = sizeof(buffer);
+		printf("Buffer size in bytes is %d",buffer_size);
 		time_string = ctime(&current_time);
 		f = fopen("proxy.log", "a+");
 		const char s[2] = " ";
 		char *buffer_token;
 		buffer_token = strtok(buffer, s);
 		buffer_token = strtok(NULL, s);
-
-		fprintf(f,"%s %s %s",time_string,ipstr,buffer_token);
+		fprintf(f,"%s %s %s %d",time_string,ipstr,buffer_token,buffer_size);
 		fprintf(f,"\n\n");
 		fclose(f);
 		n = write(socket,"I got your message!!!",18);/*response to client*/
