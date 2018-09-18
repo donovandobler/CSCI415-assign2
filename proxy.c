@@ -7,7 +7,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
-
+#include <time.h>
+#include <arpa/inet.h>
 void error(const char *msg)/*error message generated*/
 {
 	perror(msg);
@@ -67,8 +68,16 @@ void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
 	socket = *((int*)newsockfd);
 	char buffer[256];/*buffer for storing messages*/
 	int n;
+	time_t current_time;
+	char* time_string;
+	current_time = time(NULL);
 	address_length = sizeof(cli_addr);
 	getpeername(socket, (struct sockaddr*)&cli_addr, &address_length);
+	char ipstr[INET_ADDRSTRLEN];
+	inet_ntop(AF_INET, &(cli_addr.sin_addr), ipstr, INET_ADDRSTRLEN);
+	FILE *f;
+
+	if(f == NULL){/*log file failure*/}
 	while(1)/*endless loop*/
 	{
 		bzero(buffer,256);
@@ -78,6 +87,16 @@ void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
 			error("ERROR reading from socket");
 		}
 		printf("%s\n",buffer);/*message from client*/
+		time_string = ctime(&current_time);
+		f = fopen("proxy.log", "a+");
+		const char s[2] = " ";
+		char *buffer_token;
+		buffer_token = strtok(buffer, s);
+		buffer_token = strtok(NULL, s);
+
+		fprintf(f,"%s %s %s",time_string,ipstr,buffer_token);
+		fprintf(f,"\n\n");
+		fclose(f);
 		n = write(socket,"I got your message!!!",18);/*response to client*/
 		if (n < 0) /* error message if socket  not written to socket correctly*/
 		{
