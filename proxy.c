@@ -16,20 +16,14 @@ void error(const char *msg)/*error message generated*/
 	exit(1);
 }
 
-//void prepend(char* uri, char** uri_token) {
-//	sprintf(uri, "/");
-//	strcpy(uri, uri_token);
-//	printf("%s", uri);
-//}
-
 char *proxy_request(char* host, char* uri) {
-	int sockfd, n, comp;
+	int sockfd, n, comp, total, sent, bytes, received;
 	int portno = 80;
         struct sockaddr_in serv_addr;
         struct hostent *server;
-        char bufferread[256];
-        char bufferwrite[256];
-        //portno = iport;/*change a string to an integer*/
+        char request[2048],response[10000];
+	bzero(response,10000);
+	bzero(request,2048);
         sockfd = socket(AF_INET, SOCK_STREAM, 0);
         if (sockfd < 0)
                 error("ERROR opening socket");
@@ -48,8 +42,42 @@ char *proxy_request(char* host, char* uri) {
                 error("ERROR connecting");
         //request
 	printf("host=%s uri=%s\n", host, uri);
-        close(sockfd);/*close socket*/
+	strcpy(request, "GET /");
+	strcat(request, uri);
+	strcat(request, " HTTP/1.1\r\nHOST: ");
+	strcat(request, host);
+	strcat(request, ":80\r\nConnection: close\r\n\r\n");
+	total = strlen(request);
+	sent = 0;
 
+	puts("start of request");
+	bytes = write(sockfd,request,sizeof(request));
+	if( bytes < 0) {
+		error("ERROR Writing to socket\n");
+	}
+	sent+=bytes;
+	memset(response,0,sizeof(response));
+	total = sizeof(response)-1;
+	received = 0;
+	do {
+		puts("start of response");
+		bytes = read(sockfd,response+received,total-received);
+		if (bytes < 0) {
+			error("ERROR Reading response from socket\n");
+		}
+		if (bytes == 0) { 
+			break;
+		}
+		received+=bytes;
+	} while(received < total);
+	if (received == total) {
+		error("ERROR Storing response from socket\n");
+	}
+//	printf("%s", response);
+        close(sockfd);/*close socket*/
+	char* response_return =(char *) malloc(sizeof(response));
+	memcpy(response_return, response, sizeof(response));
+	return response_return;
 }
 
 void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
@@ -92,6 +120,10 @@ void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
 	char* temp;
 	char* temp_token;
 	char* protocol_version;
+//	char response[10000];
+//	bzero(response,100000);
+	bzero(uri,256);
+	bzero(host,256);
 	buffer_token = strtok(buffer, s);
 	while (buffer_token != NULL) {
 		if(i == 1) {
@@ -106,8 +138,7 @@ void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
 		}
 		else if(i == 2) {
 			temp_uri = buffer_token;
-			strcpy(uri, "/");
-			strcat(uri, temp_uri);
+			strcpy(uri, temp_uri);
 		}
 		else if(i == 3) {
 			break;
@@ -138,7 +169,9 @@ void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
 		//n = write(socket,"I got your message!!!",18);/*response to client*/
 		//Make call fot proxy_request
 //	printf("in thread host=%s uri=%s", host, uri);
-	proxy_request(host, uri);
+//	response = 
+	char* server_response=proxy_request(host, uri);
+	n = write(socket,server_response,strlen(server_response));/*response to client*/
 	if (n < 0) /* error message if socket  not written to socket correctly*/
 	{
 		error("ERROR writing to socket");
