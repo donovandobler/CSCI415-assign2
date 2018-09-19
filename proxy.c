@@ -16,13 +16,13 @@ void error(const char *msg)/*error message generated*/
 	exit(1);
 }
 
-char *proxy_request(char* host, char* uri) {
+char *proxy_request(char* host, char* uri, char* method) {
 	int sockfd, n, comp, total, sent, bytes, received;
 	int portno = 80;
         struct sockaddr_in serv_addr;
         struct hostent *server;
-        char request[2048],response[10000];
-	bzero(response,10000);
+        char request[2048],response[100000];
+	bzero(response,100000);
 	bzero(request,2048);
         sockfd = socket(AF_INET, SOCK_STREAM, 0);
         if (sockfd < 0)
@@ -42,11 +42,13 @@ char *proxy_request(char* host, char* uri) {
                 error("ERROR connecting");
         //request
 	printf("host=%s uri=%s\n", host, uri);
-	strcpy(request, "GET /");
+	strcpy(request, method);
+	strcat(request, " /");
 	strcat(request, uri);
 	strcat(request, " HTTP/1.1\r\nHOST: ");
 	strcat(request, host);
 	strcat(request, ":80\r\nConnection: close\r\n\r\n");
+	printf("Request String: %s\n", request);
 	total = strlen(request);
 	sent = 0;
 
@@ -107,7 +109,7 @@ void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
 	}
 	printf("%s\n",buffer);/*message from client*/
 	int buffer_size = sizeof(buffer);
-	printf("Buffer size in bytes is %d\n",buffer_size);
+//	printf("Buffer size in bytes is %d\n",buffer_size);
 	time_string = ctime(&current_time);
 //	f = fopen("proxy.log", "a+");
 	const char s[2] = " ";
@@ -119,33 +121,68 @@ void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
 	char* temp_uri;
 	char* temp;
 	char* temp_token;
-	char* protocol_version;
-//	char response[10000];
-//	bzero(response,100000);
+	char* request_method;
 	bzero(uri,256);
 	bzero(host,256);
-	buffer_token = strtok(buffer, s);
-	while (buffer_token != NULL) {
-		if(i == 1) {
+	buffer_token = strtok(buffer, "\n");
+	while(buffer_token) {
+		if(i ==0) {
 			temp = buffer_token;
-			temp += 7;
-			temp_token = strtok(temp, split);
-//			url_token = strtok(NULL, split);
-//			strcpy(url, "/");
-			strcat(host, temp_token);
-//			printf("%s\n", url);
-			
+			char* request_token = strtok(temp, " ");
+			int j =0;
+			while(request_token) {
+				char* request_method_temp = request_token;
+				if(j==0) {
+					request_method = request_method_temp;
+				}
+				else if (j==1){
+					// can do stuff with protocol here
+					char* temp_host = request_method_temp;
+					char* host_token = strtok(temp_host, "//");
+					int k =0;
+					while(host_token) {
+						char* temp_url = host_token;
+						if(k==1) {
+							strcpy(host, temp_url);
+							break;
+						}
+						host_token = strtok(NULL, "//");
+						k++;
+					}
+				}
+				else if (j==2) {
+					strcpy(uri, request_method_temp);
+				}
+				request_token = strtok(NULL, " ");
+				j++;
+			}
 		}
-		else if(i == 2) {
-			temp_uri = buffer_token;
-			strcpy(uri, temp_uri);
-		}
-		else if(i == 3) {
-			break;
-		}
-		buffer_token = strtok(NULL, s);
+//		else if(i == 1) {
+//
+//		}
+		buffer_token= strtok(NULL, "\n");
 		i++;
 	}
+	printf("method=%s host=%s uri=%s\n", request_method, host, uri);
+//	while (buffer_token != NULL) {
+//		if(i == 1) {
+//			temp = buffer_token;
+//			temp += 7;
+//			temp_token = strtok(temp, split);
+//
+//			strcat(host, temp_token)
+//			
+//		}
+//		else if(i == 2) {
+//			temp_uri = buffer_token;
+//			strcpy(uri, temp_uri);
+//		}
+//		else if(i == 3) {
+//			break;
+//		}
+//		buffer_token = strtok(NULL, s);
+//		i++;
+//	}
 //	printf("host=%s uri=%s\n", host, uri);
 //	fprintf(f,"%s %s %s %d",time_string,ipstr,url,buffer_size);
 //	fprintf(f,"\n\n");
@@ -170,7 +207,7 @@ void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
 		//Make call fot proxy_request
 //	printf("in thread host=%s uri=%s", host, uri);
 //	response = 
-	char* server_response=proxy_request(host, uri);
+	char* server_response=proxy_request(host, uri, request_method);
 	n = write(socket,server_response,strlen(server_response));/*response to client*/
 	if (n < 0) /* error message if socket  not written to socket correctly*/
 	{
