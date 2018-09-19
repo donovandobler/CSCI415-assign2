@@ -17,13 +17,13 @@ void error(const char *msg)/*error message generated*/
 }
 
 char *proxy_request(char* host, char* uri, char* method) {
-	if (strcmp("CONNECT",method) != 0 ){
+	if ((strcmp("CONNECT",method) != 0) && (method != NULL) ){
 		int sockfd, n, comp, total, sent, bytes, received;
 		int portno = 80;
 	        struct sockaddr_in serv_addr;
 	        struct hostent *server;
-	        char request[2048],response[1000000];
-		bzero(response,1000000);
+	        char request[2048],response[8192];
+		bzero(response,8192);
 		bzero(request,2048);
 	        sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	        if (sockfd < 0)
@@ -31,7 +31,7 @@ char *proxy_request(char* host, char* uri, char* method) {
 	        server = gethostbyname(host);
 	        if (server == NULL) {
 	                fprintf(stderr,"ERROR, no such host\n");
-	                exit(0);
+	                return "NO SUCH HOST";
 	        }
 	        bzero((char *) &serv_addr, sizeof(serv_addr));
 	        serv_addr.sin_family = AF_INET;
@@ -62,9 +62,10 @@ char *proxy_request(char* host, char* uri, char* method) {
 		memset(response,0,sizeof(response));
 		total = sizeof(response)-1;
 		received = 0;
+                char* response_return =(char *) malloc(sizeof(response)*100000);
 		do {
 			puts("start of response");
-			bytes = read(sockfd,response+received,total-received);
+			bytes = read(sockfd,response,8191);
 			if (bytes < 0) {
 				error("ERROR Reading response from socket\n");
 			}
@@ -72,14 +73,17 @@ char *proxy_request(char* host, char* uri, char* method) {
 				break;
 			}
 			received+=bytes;
-		} while(received < total);
+                        sprintf(response_return + strlen(response_return),"%s", response);
+        //                memcpy(response_return, response, sizeof(response));
+                        bzero(response,8192);
+		} while(bytes !=0);
 		if (received == total) {
 			error("ERROR Storing response from socket\n");
 		}
 	//	printf("%s", response);
 	        close(sockfd);/*close socket*/
-		char* response_return =(char *) malloc(sizeof(response));
-		memcpy(response_return, response, sizeof(response));
+//		char* response_return =(char *) malloc(sizeof(response));
+//		memcpy(response_return, response, sizeof(response));
 		return response_return;
 	}
 	else {
@@ -112,7 +116,7 @@ void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
 	{
 		error("ERROR reading from socket");
 	}
-	printf("%s\n",buffer);/*message from client*/
+//        printf("%s\n",buffer);/*message from client*/
 	int buffer_size = sizeof(buffer);
 //	printf("Buffer size in bytes is %d\n",buffer_size);
 	time_string = ctime(&current_time);
@@ -168,7 +172,7 @@ void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
 		buffer_token= strtok(NULL, "\n");
 		i++;
 	}
-	printf("method=%s host=%s uri=%s\n", request_method, host, uri);
+//	printf("method=%s host=%s uri=%s\n", request_method, host, uri);
 //	while (buffer_token != NULL) {
 //		if(i == 1) {
 //			temp = buffer_token;
@@ -213,12 +217,13 @@ void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
 //	printf("in thread host=%s uri=%s", host, uri);
 //	response = 
 	char* server_response=proxy_request(host, uri, request_method);
+//        printf("%s\n",server_response);
 	n = write(socket,server_response,strlen(server_response));/*response to client*/
 	if (n < 0) /* error message if socket  not written to socket correctly*/
 	{
 		error("ERROR writing to socket");
 	}
-	close(socket);/*closes the client socket*/
+//	close(socket);/*closes the client socket*/
 }
 
 
