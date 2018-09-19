@@ -9,19 +9,27 @@
 #include <netdb.h>
 #include <time.h>
 #include <arpa/inet.h>
+#include <assert.h>
 void error(const char *msg)/*error message generated*/
 {
 	perror(msg);
 	exit(1);
 }
 
-char *proxy_request(char* host, int iport) {
-	int sockfd, portno, n, comp;
+//void prepend(char* uri, char** uri_token) {
+//	sprintf(uri, "/");
+//	strcpy(uri, uri_token);
+//	printf("%s", uri);
+//}
+
+char *proxy_request(char* host, char* uri) {
+	int sockfd, n, comp;
+	int portno = 80;
         struct sockaddr_in serv_addr;
         struct hostent *server;
         char bufferread[256];
         char bufferwrite[256];
-        portno = iport;/*change a string to an integer*/
+        //portno = iport;/*change a string to an integer*/
         sockfd = socket(AF_INET, SOCK_STREAM, 0);
         if (sockfd < 0)
                 error("ERROR opening socket");
@@ -38,24 +46,9 @@ char *proxy_request(char* host, int iport) {
         serv_addr.sin_port = htons(portno);
         if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
                 error("ERROR connecting");
-        while(strcmp(bufferwrite, "EXIT\n") != 0)/*checks to see if the host wants to quit*/
-        {
-                printf("Please enter the message: ");/*message to be sent*/
-                bzero(bufferwrite,256);
-                fgets(bufferwrite,255,stdin);/*get from the console*/
-                n = write(sockfd,bufferwrite,strlen(bufferwrite));
-                if (n < 0)
-                {
-                        error("ERROR writing to socket");
-                }
-                bzero(bufferread,256);/*clears the bufferread array*/
-                n = read(sockfd,bufferread,255);/*read from the socket*/
-                if (n < 0)
-                        error("ERROR reading from socket");
-                printf("%s\n",bufferread);
-        }
+        //request
+	printf("host=%s uri=%s\n", host, uri);
         close(sockfd);/*close socket*/
-        return 0;
 
 }
 
@@ -78,35 +71,77 @@ void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
 	FILE *f;
 
 	if(f == NULL){/*log file failure*/}
-	while(1)/*endless loop*/
+	bzero(buffer,256);
+	n = read(socket,buffer,255);
+	if (n < 0) 
 	{
-		bzero(buffer,256);
-		n = read(socket,buffer,255);
-		if (n < 0) 
-		{
-			error("ERROR reading from socket");
+		error("ERROR reading from socket");
+	}
+	printf("%s\n",buffer);/*message from client*/
+	int buffer_size = sizeof(buffer);
+	printf("Buffer size in bytes is %d\n",buffer_size);
+	time_string = ctime(&current_time);
+//	f = fopen("proxy.log", "a+");
+	const char s[2] = " ";
+	const char split[2] = "/";
+	char *buffer_token;
+	int i = 0;
+	char host[256];
+	char uri[256];
+	char* temp_uri;
+	char* temp;
+	char* temp_token;
+	char* protocol_version;
+	buffer_token = strtok(buffer, s);
+	while (buffer_token != NULL) {
+		if(i == 1) {
+			temp = buffer_token;
+			temp += 7;
+			temp_token = strtok(temp, split);
+//			url_token = strtok(NULL, split);
+//			strcpy(url, "/");
+			strcat(host, temp_token);
+//			printf("%s\n", url);
+			
 		}
-		printf("%s\n",buffer);/*message from client*/
-		int buffer_size = sizeof(buffer);
-		printf("Buffer size in bytes is %d",buffer_size);
-		time_string = ctime(&current_time);
-		f = fopen("proxy.log", "a+");
-		const char s[2] = " ";
-		char *buffer_token;
-		buffer_token = strtok(buffer, s);
+		else if(i == 2) {
+			temp_uri = buffer_token;
+			strcpy(uri, "/");
+			strcat(uri, temp_uri);
+		}
+		else if(i == 3) {
+			break;
+		}
 		buffer_token = strtok(NULL, s);
-		fprintf(f,"%s %s %s %d",time_string,ipstr,buffer_token,buffer_size);
-		fprintf(f,"\n\n");
-		fclose(f);
-		n = write(socket,"I got your message!!!",18);/*response to client*/
-		if (n < 0) /* error message if socket  not written to socket correctly*/
-		{
-			error("ERROR writing to socket");
-		}
-		if(strcmp(buffer,"EXIT\n") == 0)/*checks to see if the client wants to quit*/
-		{
-			break;/*if client wants to quit break loop*/
-		}
+		i++;
+	}
+//	printf("host=%s uri=%s\n", host, uri);
+//	fprintf(f,"%s %s %s %d",time_string,ipstr,url,buffer_size);
+//	fprintf(f,"\n\n");
+//	fclose(f);
+//	url +=  7;
+//	char* uri;
+//	char* uri_temp;
+//	uri_temp = strtok(url, split);
+//	printf("%s", uri_temp);
+//	while (url != NULL) {
+//		uri_temp = strtok(NULL, split);
+//		uri=uri_temp;
+//		break;
+//	}
+//	printf("%s", uri);
+//		char uri[256];
+//		strncpy(uri, host_token, sizeof host_token);
+//		prepend(uri,&uri_token);
+//		printf("\n%s", uri);
+//		printf("\n%s",uri);
+		//n = write(socket,"I got your message!!!",18);/*response to client*/
+		//Make call fot proxy_request
+//	printf("in thread host=%s uri=%s", host, uri);
+	proxy_request(host, uri);
+	if (n < 0) /* error message if socket  not written to socket correctly*/
+	{
+		error("ERROR writing to socket");
 	}
 	close(socket);/*closes the client socket*/
 }
