@@ -17,69 +17,74 @@ void error(const char *msg)/*error message generated*/
 }
 
 char *proxy_request(char* host, char* uri, char* method) {
-	int sockfd, n, comp, total, sent, bytes, received;
-	int portno = 80;
-        struct sockaddr_in serv_addr;
-        struct hostent *server;
-        char request[2048],response[100000];
-	bzero(response,100000);
-	bzero(request,2048);
-        sockfd = socket(AF_INET, SOCK_STREAM, 0);
-        if (sockfd < 0)
-                error("ERROR opening socket");
-        server = gethostbyname(host);
-        if (server == NULL) {
-                fprintf(stderr,"ERROR, no such host\n");
-                exit(0);
-        }
-        bzero((char *) &serv_addr, sizeof(serv_addr));
-        serv_addr.sin_family = AF_INET;
-        bcopy((char *)server->h_addr,
-                        (char *)&serv_addr.sin_addr.s_addr,
-                        server->h_length);
-        serv_addr.sin_port = htons(portno);
-        if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
-                error("ERROR connecting");
-        //request
-	printf("host=%s uri=%s\n", host, uri);
-	strcpy(request, method);
-	strcat(request, " /");
-	strcat(request, uri);
-	strcat(request, " HTTP/1.1\r\nHOST: ");
-	strcat(request, host);
-	strcat(request, ":80\r\nConnection: close\r\n\r\n");
-	printf("Request String: %s\n", request);
-	total = strlen(request);
-	sent = 0;
-
-	puts("start of request");
-	bytes = write(sockfd,request,sizeof(request));
-	if( bytes < 0) {
-		error("ERROR Writing to socket\n");
-	}
-	sent+=bytes;
-	memset(response,0,sizeof(response));
-	total = sizeof(response)-1;
-	received = 0;
-	do {
-		puts("start of response");
-		bytes = read(sockfd,response+received,total-received);
-		if (bytes < 0) {
-			error("ERROR Reading response from socket\n");
+	if (strcmp("CONNECT",method) != 0 ){
+		int sockfd, n, comp, total, sent, bytes, received;
+		int portno = 80;
+	        struct sockaddr_in serv_addr;
+	        struct hostent *server;
+	        char request[2048],response[1000000];
+		bzero(response,1000000);
+		bzero(request,2048);
+	        sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	        if (sockfd < 0)
+	                error("ERROR opening socket");
+	        server = gethostbyname(host);
+	        if (server == NULL) {
+	                fprintf(stderr,"ERROR, no such host\n");
+	                exit(0);
+	        }
+	        bzero((char *) &serv_addr, sizeof(serv_addr));
+	        serv_addr.sin_family = AF_INET;
+	        bcopy((char *)server->h_addr,
+	                        (char *)&serv_addr.sin_addr.s_addr,
+	                        server->h_length);
+	        serv_addr.sin_port = htons(portno);
+	        if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
+	                error("ERROR connecting");
+	        //request
+		printf("host=%s uri=%s\n", host, uri);
+		strcpy(request, method);
+		strcat(request, " /");
+		strcat(request, uri);
+		strcat(request, " HTTP/1.1\r\nHOST: ");
+		strcat(request, host);
+		strcat(request, ":80\r\nConnection: close\r\n\r\n");
+		printf("Request String: %s\n", request);
+		total = strlen(request);
+		sent = 0;
+	
+		puts("start of request");
+		bytes = write(sockfd,request,sizeof(request));
+		if( bytes < 0) {
+			error("ERROR Writing to socket\n");
 		}
-		if (bytes == 0) { 
-			break;
+		sent+=bytes;
+		memset(response,0,sizeof(response));
+		total = sizeof(response)-1;
+		received = 0;
+		do {
+			puts("start of response");
+			bytes = read(sockfd,response+received,total-received);
+			if (bytes < 0) {
+				error("ERROR Reading response from socket\n");
+			}
+			if (bytes == 0) { 
+				break;
+			}
+			received+=bytes;
+		} while(received < total);
+		if (received == total) {
+			error("ERROR Storing response from socket\n");
 		}
-		received+=bytes;
-	} while(received < total);
-	if (received == total) {
-		error("ERROR Storing response from socket\n");
+	//	printf("%s", response);
+	        close(sockfd);/*close socket*/
+		char* response_return =(char *) malloc(sizeof(response));
+		memcpy(response_return, response, sizeof(response));
+		return response_return;
 	}
-//	printf("%s", response);
-        close(sockfd);/*close socket*/
-	char* response_return =(char *) malloc(sizeof(response));
-	memcpy(response_return, response, sizeof(response));
-	return response_return;
+	else {
+		return "SSL NOT IMPLEMENTED";
+	}
 }
 
 void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
