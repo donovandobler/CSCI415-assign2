@@ -109,8 +109,7 @@ char *proxy_request(char* host, char* uri, char* method) {
 		if (received == total) {
 			error("ERROR Storing response from socket\n");
 		}
-		printf("%s", response);
-		printf("%i", received);
+		printf("Response:%s Sent:%i Received:%i Bytes:%i Total:%i\n ", response,sent,received,bytes,total);
 	        close(sockfd);/*close socket*/
 //		char* response_return =(char *) malloc(sizeof(response));
 //		memcpy(response_return, response, sizeof(response));
@@ -177,6 +176,7 @@ void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
 	}
 	printf("method=%s uri=%s host=%s\n", request_method, uri , host);
 	char* server_response=proxy_request(host, uri, request_method);
+	int rbytes = strlen(server_response);
 	bzero(buffer,254);
         bzero(temp_buffer, 254);
 //        printf("%s\n",server_response);
@@ -185,8 +185,8 @@ void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
 	{
 		error("ERROR writing to socket");
 	}
-	printf("%s %s %s\n\n", time_string, ipstr, host_string);
-	fprintf(f, "%s %s %s\n\n", time_string, ipstr, host_string);
+	printf("%s %s %s %i\n\n", time_string, ipstr, host_string, rbytes);
+	fprintf(f, "%s %s %s %i\n\n", time_string, ipstr, host_string, rbytes);
 	fclose(f);
 	close(socket);/*closes the client socket*/
 }
