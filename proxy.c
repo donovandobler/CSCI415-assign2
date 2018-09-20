@@ -16,7 +16,38 @@ void error(const char *msg)/*error message generated*/
 	exit(1);
 }
 
+char *parse_headers(char* raw, char* element) {
+	if(strcmp(element,"method") == 0) {
+		char* token  = strtok(raw, " ");
+		return token;
+	}
+	else if (strcmp(element, "host") == 0 ) {
+		char* token  = strtok(raw, " ");
+		int i = 0;
+		while(token) {
+			if( i == 1) {
+				token = strtok(token, "://");
+				token = strtok(NULL, "://");
+				return token;
+			}
+			token = strtok(NULL, " ");
+			i++;
+		}
+	}
+	else if (strcmp(element, "uri") == 0) {
+		char* token = strtok(raw, " ");
+		token = strtok(NULL, " ");
+		token +=7;
+		char *e;
+		int index;
+		e = strchr(token, '/');
+		index = (int) (e - token);
+		char* uri = index+token;
+	}
+}
+
 char *proxy_request(char* host, char* uri, char* method) {
+	printf("made it into method\n");
 	if ((strcmp("CONNECT",method) != 0) && (method != NULL) ){
 		int sockfd, n, comp, total, sent, bytes, received;
 		int portno = 80;
@@ -42,9 +73,8 @@ char *proxy_request(char* host, char* uri, char* method) {
 	        if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
 	                error("ERROR connecting");
 	        //request
-		printf("host=%s uri=%s\n", host, uri);
 		strcpy(request, method);
-		strcat(request, " /");
+		strcat(request, " ");
 		strcat(request, uri);
 		strcat(request, " HTTP/1.1\r\nHOST: ");
 		strcat(request, host);
@@ -52,12 +82,11 @@ char *proxy_request(char* host, char* uri, char* method) {
 		printf("Request String: %s\n", request);
 		total = strlen(request);
 		sent = 0;
-	
-		puts("start of request");
 		bytes = write(sockfd,request,sizeof(request));
 		if( bytes < 0) {
 			error("ERROR Writing to socket\n");
 		}
+		puts("request sent off");
 		sent+=bytes;
 		memset(response,0,sizeof(response));
 		total = sizeof(response)-1;
@@ -80,7 +109,7 @@ char *proxy_request(char* host, char* uri, char* method) {
 		if (received == total) {
 			error("ERROR Storing response from socket\n");
 		}
-	//	printf("%s", response);
+		printf("%s", response);
 	        close(sockfd);/*close socket*/
 //		char* response_return =(char *) malloc(sizeof(response));
 //		memcpy(response_return, response, sizeof(response));
@@ -117,113 +146,43 @@ void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
 		error("ERROR reading from socket");
 	}
 //        printf("%s\n",buffer);/*message from client*/
-	int buffer_size = sizeof(buffer);
-//	printf("Buffer size in bytes is %d\n",buffer_size);
 	time_string = ctime(&current_time);
 //	f = fopen("proxy.log", "a+");
-	const char s[2] = " ";
-	const char split[2] = "/";
-	char *buffer_token;
-	int i = 0;
-	char host[256];
-	char uri[256];
-	char* temp_uri;
-	char* temp;
-	char* temp_token;
-	char* request_method;
-	bzero(uri,256);
-	bzero(host,256);
-	buffer_token = strtok(buffer, "\n");
-	while(buffer_token) {
-		if(i ==0) {
-			temp = buffer_token;
-			char* request_token = strtok(temp, " ");
-			int j =0;
-			while(request_token) {
-				char* request_method_temp = request_token;
-				if(j==0) {
-					request_method = request_method_temp;
-				}
-				else if (j==1){
-					// can do stuff with protocol here
-					char* temp_host = request_method_temp;
-					char* host_token = strtok(temp_host, "//");
-					int k =0;
-					while(host_token) {
-						char* temp_url = host_token;
-						if(k==1) {
-							strcpy(host, temp_url);
-							break;
-						}
-						host_token = strtok(NULL, "//");
-						k++;
-					}
-				}
-				else if (j==2) {
-					strcpy(uri, request_method_temp);
-				}
-				request_token = strtok(NULL, " ");
-				j++;
-			}
-		}
-//		else if(i == 1) {
-//
-//		}
-		buffer_token= strtok(NULL, "\n");
-		i++;
+	// parse headers
+	char temp_buffer[sizeof(buffer)];
+	memcpy(temp_buffer,buffer,sizeof(buffer));
+	char* request_method = parse_headers(buffer,"method");
+	bzero(buffer,254);
+	memcpy(buffer,temp_buffer,sizeof(temp_buffer));
+	char* token = strtok(buffer, " ");
+        token = strtok(NULL, " ");
+        token +=7;
+        char *e;
+        int index;
+        e = strchr(token, '/');
+        index = (int) (e - token);
+        char* uri = index+token;
+	char* host = parse_headers(temp_buffer,"host");
+	if(uri == NULL) {
+		uri = "";
 	}
-//	printf("method=%s host=%s uri=%s\n", request_method, host, uri);
-//	while (buffer_token != NULL) {
-//		if(i == 1) {
-//			temp = buffer_token;
-//			temp += 7;
-//			temp_token = strtok(temp, split);
-//
-//			strcat(host, temp_token)
-//			
-//		}
-//		else if(i == 2) {
-//			temp_uri = buffer_token;
-//			strcpy(uri, temp_uri);
-//		}
-//		else if(i == 3) {
-//			break;
-//		}
-//		buffer_token = strtok(NULL, s);
-//		i++;
-//	}
-//	printf("host=%s uri=%s\n", host, uri);
-//	fprintf(f,"%s %s %s %d",time_string,ipstr,url,buffer_size);
-//	fprintf(f,"\n\n");
-//	fclose(f);
-//	url +=  7;
-//	char* uri;
-//	char* uri_temp;
-//	uri_temp = strtok(url, split);
-//	printf("%s", uri_temp);
-//	while (url != NULL) {
-//		uri_temp = strtok(NULL, split);
-//		uri=uri_temp;
-//		break;
-//	}
-//	printf("%s", uri);
-//		char uri[256];
-//		strncpy(uri, host_token, sizeof host_token);
-//		prepend(uri,&uri_token);
-//		printf("\n%s", uri);
-//		printf("\n%s",uri);
-		//n = write(socket,"I got your message!!!",18);/*response to client*/
-		//Make call fot proxy_request
-//	printf("in thread host=%s uri=%s", host, uri);
-//	response = 
+	if(host == NULL ) {
+		host = "";
+	}
+	if (request_method == NULL ) {
+		request_method = "GET";
+	}
+	printf("method=%s uri=%s host=%s\n", request_method, uri , host);
 	char* server_response=proxy_request(host, uri, request_method);
+	bzero(buffer,254);
+        bzero(temp_buffer, 254);
 //        printf("%s\n",server_response);
 	n = write(socket,server_response,strlen(server_response));/*response to client*/
 	if (n < 0) /* error message if socket  not written to socket correctly*/
 	{
 		error("ERROR writing to socket");
 	}
-//	close(socket);/*closes the client socket*/
+	close(socket);/*closes the client socket*/
 }
 
 
@@ -260,7 +219,11 @@ int main(int argc, char *argv[])/*main method*/
 		if (newsockfd < 0) {
 			error("ERROR on accept");
 		}
-		pthread_create(&thread,0,run_thread,&newsockfd);/*creates a new thread for each client*/
+//		pthread_create(&thread,0,run_thread,&newsockfd);/*creates a new thread for each client*/
+		if(fork() == 0) {
+			run_thread(&newsockfd);
+			exit(1);
+		}
 	}
 	close(sockfd);
 	exit(0);
