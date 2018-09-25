@@ -186,6 +186,7 @@ void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
 		error("ERROR writing to socket");
 	}
 	printf("%s %s %s %i\n\n", time_string, ipstr, host_string, rbytes);
+	time_string = strtok(time_string,"\n");
 	fprintf(f, "%s %s %s %i\n\n", time_string, ipstr, host_string, rbytes);
 	fclose(f);
 	close(socket);/*closes the client socket*/
