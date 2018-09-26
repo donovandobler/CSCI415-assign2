@@ -10,6 +10,13 @@
 #include <time.h>
 #include <arpa/inet.h>
 #include <assert.h>
+
+struct response {
+	int bytes;
+	char *headers;
+	char *response;
+};
+
 void error(const char *msg)/*error message generated*/
 {
 	perror(msg);
@@ -46,8 +53,7 @@ char *parse_headers(char* raw, char* element) {
 	}
 }
 
-char *proxy_request(char* host, char* uri, char* method) {
-	printf("made it into method\n");
+struct response proxy_request(char* host, char* uri, char* method) {
 	if ((strcmp("CONNECT",method) != 0) && (method != NULL) ){
 		int sockfd, n, comp, total, sent, bytes, received;
 		int portno = 80;
@@ -62,7 +68,9 @@ char *proxy_request(char* host, char* uri, char* method) {
 	        server = gethostbyname(host);
 	        if (server == NULL) {
 	                fprintf(stderr,"ERROR, no such host\n");
-	                return "NO SUCH HOST";
+			struct response return_error;
+			return_error.response="NO SUCH HOST";
+	                return return_error;
 	        }
 	        bzero((char *) &serv_addr, sizeof(serv_addr));
 	        serv_addr.sin_family = AF_INET;
@@ -79,21 +87,20 @@ char *proxy_request(char* host, char* uri, char* method) {
 		strcat(request, " HTTP/1.1\r\nHOST: ");
 		strcat(request, host);
 		strcat(request, ":80\r\nConnection: close\r\n\r\n");
-		printf("Request String: %s\n", request);
 		total = strlen(request);
 		sent = 0;
 		bytes = write(sockfd,request,sizeof(request));
 		if( bytes < 0) {
 			error("ERROR Writing to socket\n");
 		}
-		puts("request sent off");
+//		puts("request sent off");
 		sent+=bytes;
 		memset(response,0,sizeof(response));
 		total = sizeof(response)-1;
 		received = 0;
                 char* response_return =(char *) malloc(sizeof(response)*100000);
 		do {
-			puts("start of response");
+//			puts("start of response");
 			bytes = read(sockfd,response,8191);
 			if (bytes < 0) {
 				error("ERROR Reading response from socket\n");
@@ -103,20 +110,23 @@ char *proxy_request(char* host, char* uri, char* method) {
 			}
 			received+=bytes;
                         sprintf(response_return + strlen(response_return),"%s", response);
-        //                memcpy(response_return, response, sizeof(response));
                         bzero(response,8192);
 		} while(bytes !=0);
 		if (received == total) {
 			error("ERROR Storing response from socket\n");
 		}
-		printf("Response:%s Sent:%i Received:%i Bytes:%i Total:%i\n ", response,sent,received,bytes,total);
+		//printf("Response:%s Sent:%i Received:%i Bytes:%i Total:%i\n ", response,sent,received,bytes,total);
 	        close(sockfd);/*close socket*/
-//		char* response_return =(char *) malloc(sizeof(response));
-//		memcpy(response_return, response, sizeof(response));
-		return response_return;
+
+		struct response r;
+		r.bytes=received;
+		r.response=strdup(response_return);
+		return r;
 	}
 	else {
-		return "SSL NOT IMPLEMENTED";
+		struct response return_error;
+                return_error.response="SSL NOT IMPLEMENTED";
+                return return_error;
 	}
 }
 
@@ -145,7 +155,6 @@ void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
 	{
 		error("ERROR reading from socket");
 	}
-//        printf("%s\n",buffer);/*message from client*/
 	time_string = ctime(&current_time);
 	f = fopen("proxy.log", "a+");
 	// parse headers
@@ -174,18 +183,18 @@ void *run_thread(void* newsockfd)/*reading and writing messages on each thread*/
 	if (request_method == NULL ) {
 		request_method = "GET";
 	}
-	printf("method=%s uri=%s host=%s\n", request_method, uri , host);
-	char* server_response=proxy_request(host, uri, request_method);
-	int rbytes = strlen(server_response);
+	//printf("method=%s uri=%s host=%s\n", request_method, uri , host);
+	struct response server_response;
+	server_response=proxy_request(host, uri, request_method);
+	int rbytes = server_response.bytes;
 	bzero(buffer,254);
         bzero(temp_buffer, 254);
-//        printf("%s\n",server_response);
-	n = write(socket,server_response,strlen(server_response));/*response to client*/
+	n = write(socket,server_response.response,server_response.bytes);/*response to client*/
 	if (n < 0) /* error message if socket  not written to socket correctly*/
 	{
 		error("ERROR writing to socket");
 	}
-	printf("%s %s %s %i\n\n", time_string, ipstr, host_string, rbytes);
+	//printf("%s %s %s %i\n\n", time_string, ipstr, host_string, rbytes);
 	time_string = strtok(time_string,"\n");
 	fprintf(f, "%s %s %s %i\n\n", time_string, ipstr, host_string, rbytes);
 	fclose(f);
